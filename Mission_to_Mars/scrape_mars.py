@@ -1,83 +1,58 @@
 # Dependencies
+from splinter import Browser
 from bs4 import BeautifulSoup as bs
+import pandas as pd
 import requests
 import pymongo
-from splinter import Browser
-from flask import Flask, render_template, redirect
-from flask_pymongo import PyMongo
-import pandas as pd
-import time
 
 def init_browser():
-    executable_path = {'executable_path': 'chromedriver.exe'}
-    return Browser('chrome', **executable_path, headless=False)
-def scrape():
-    browser=init_browser()
-    mars_dict={}
-    ### NASA Mars News
+    executable_path = {"executable_path": "chromedriver.exe"}
+    return Browser("chrome", **executable_path, headless=False)
 
-    # URL of page to be scraped
+def scrape():
+    browser = init_browser()
+    mars_dict ={}
+
+    # Mars News URL of page to be scraped
     news_url = 'https://mars.nasa.gov/news/'
     browser.visit(news_url)
-    time.sleep(5)
-    html=browser.html
-    news_soup=bs(html,'html.parser')
+    html = browser.html
+    news_soup = bs(html, 'html.parser')
+    # Retrieve the latest news title and paragraph
+    news_title = news_soup.find_all('div', class_='content_title')[0].text
+    news_p = news_soup.find_all('div', class_='article_teaser_body')[0].text
 
-    # Grab the latest news title and paragraph
-    news_title=news_soup.find_all('div', class_='content_title')[1].text
-    news_p=news_soup.find_all('div', class_='rollover_description_inner')[0].text
-    
-    ### JPL Mars Space Images - Featured Image
-
-    jpl_nasa_url="https://www.jpl.nasa.gov"
-    images_url="https://www.jpl.nasa.gov/spaceimages/?search=&category=Mars"
+    # Mars Image to be scraped
+    jpl_nasa_url = 'https://www.jpl.nasa.gov'
+    images_url = 'https://www.jpl.nasa.gov/spaceimages/?search=&category=Mars'
     browser.visit(images_url)
+    html = browser.html
+    images_soup = bs(html, 'html.parser')
+    # Retrieve featured image link
+    relative_image_path = images_soup.find_all('img')[3]["src"]
+    featured_image_url = jpl_nasa_url + relative_image_path
 
-    # HTML object
-    html=browser.html
-    time.sleep(5)
-    # Parse HTML
-    images_soup=bs(html,"html.parser")
-
-    # Retrieve image url
-    images_url=images_soup.find_all('article')
-
-    images_url=images_soup.find('article')['style']
-    images_url=images_url.split("'")[1]
-
-    featured_image_url=jpl_nasa_url+images_url
+    # Mars facts to be scraped, converted into html table
+    marsfacts_url = 'https://space-facts.com/mars/'
+    marstables = pd.read_html(facts_url)
+    marsfacts_df = tables[2]
+    marsfacts_df.columns = ["Description", "Value"]
+    mars_html_table = mars_facts_df.to_html()
+    mars_html_table.replace('\n', '')
     
-    ### Mars Fact
-
-    # Scrape Mars facts from https://space-facts.com/mars/
-    marsfacts_url='https://space-facts.com/mars/'
-    marstables=pd.read_html(marsfacts_url)
-    
-    marsfacts=marstables[0]
-    marsfacts=marsfacts.rename(columns={0:"Profile",1:"Value"},errors="raise")
-    marsfacts.set_index("Profile",inplace=True)
-    marsfacts
-    
-    mars_html_tables=marsfacts.to_html()
-    mars_html_tables.replace('\n','')
-    
-    ### Mars Hemispheres
-
-    # Scrape Mars hemisphere title and image
-    usgs_url='https://astrogeology.usgs.gov'
-    url='https://astrogeology.usgs.gov/search/results?q=hemisphere+enhanced&k1=target&v1=Mars'
+    # Mars hemisphere name and image to be scraped
+    usgs_url = 'https://astrogeology.usgs.gov'
+    url = 'https://astrogeology.usgs.gov/search/results?q=hemisphere+enhanced&k1=target&v1=Mars'
     browser.visit(url)
-    html=browser.html
-    soup=bs(html,'html.parser')
-
-    # Extract hemispheres item elements
-    mars_hems=soup.find('div',class_='collapsible results')
-    mars_item=mars_hems.find_all('div',class_='item')
-    hemisphere_image_urls=[]
-
-    # Loop through each hemisphere item
+    html = browser.html
+    hemis_soup = bs(html, 'html.parser')
+    # Mars hemispheres products data
+    mars_hemis = hemis_soup.find('div', class_='collapsible results')
+    mars_items = mars_hemis.find_all('div', class_='item')
+    hemisphere_image_urls = []
+    # Iterate through each hemisphere data
     for item in mars_item:
-        # Error handling
+    # Error handling
         try:
             # Extract title
             hem=item.find('div',class_='description')
@@ -102,14 +77,13 @@ def scrape():
         except Exception as e:
             print(e)
 
-    # Create dictionary for all info scraped from sources above
+    # Mars 
     mars_dict={
-        "news_title":news_title,
-        "news_p":news_p,
-        "featured_image_url":featured_image_url,    
-        "mars_fact_table":mars_html_table,
-        "hemisphere_images":hemisphere_image_urls
-    }
-    # Close the browser after scraping
-    browser.quit()
+    "news_title":news_title,
+    "news_p":news_p,
+    "featured_image_url":featured_image_url,
+    "mars fact_table":mars_html_table,
+    "hemisphere_images":hemisphere_image_urls
+}
+
     return mars_dict
